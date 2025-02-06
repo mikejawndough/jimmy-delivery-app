@@ -1,0 +1,15 @@
+# Node modules folder
+node_modules/
+
+# Environment files containing sensitive data
+.env
+
+# Firebase service account credentials
+firebase-key.json
+
+# Logs
+*.log
+
+# Temporary files
+.DS_Store
+
