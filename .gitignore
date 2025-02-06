@@ -2,7 +2,9 @@
 node_modules/
 
 # Environment files containing sensitive data
-.env
+firebase-key.json
+maps.env
+server.js
 
 # Firebase service account credentials
 firebase-key.json
@@ -12,7 +14,4 @@ firebase-key.json
 
 # Temporary files
 .DS_Store
-
-firebase-key.json
-maps.env
 
