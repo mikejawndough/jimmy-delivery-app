@@ -13,3 +13,6 @@ firebase-key.json
 # Temporary files
 .DS_Store
 
+firebase-key.json
+maps.env
+
