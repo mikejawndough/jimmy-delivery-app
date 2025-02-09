@@ -1,6 +1,31 @@
 {
   "name": "jimmys-delivery",
   "version": "1.0.0",
+  "description": "Jimmy's Pizza Delivery System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "firebase-admin": "^11.5.0",
+    "socket.io": "^4.6.1",
+    "node-fetch": "^3.3.1",
+    "stripe": "^12.0.0",
+    "@sendgrid/mail": "^7.7.0"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "author": "Ashley Sajous",
+  "license": "ISC"
+}
+
+{
+  "name": "jimmys-delivery",
+  "version": "1.0.0",
   "lockfileVersion": 3,
   "requires": true,
   "packages": {
