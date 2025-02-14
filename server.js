@@ -1,42 +1,70 @@
 // server.js
 
-// 1. Load Required Modules
+// 1. Load Environment Variables and Required Modules
+require('dotenv').config(); // Loads variables from .env into process.env
+const fs = require('fs');
+console.log("DEBUG: Does .env exist?", fs.existsSync('./.env'));
+console.log("DEBUG: FIREBASE_SERVICE_ACCOUNT (raw):", process.env.FIREBASE_SERVICE_ACCOUNT);
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const sgMail = require('@sendgrid/mail');
-// For Node.js versions < 18, you might need to require node-fetch:
-// const fetch = require('node-fetch');
 
-// 2. Load Firebase Service Account from Local File
-// (This file should be present locally but must be added to .gitignore so it isn’t committed)
-const serviceAccount = require('./firebase-key.json');
+// 2. Load Firebase Service Account from Environment Variable
+let firebaseAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
+if (!firebaseAccountRaw) {
+  console.error("FIREBASE_SERVICE_ACCOUNT environment variable not set.");
+  process.exit(1);
+}
+
+let serviceAccount;
+try {
+  // Parse the raw JSON from the environment variable
+  serviceAccount = JSON.parse(firebaseAccountRaw);
+
+  // Manually convert every '\\n' in the private key to actual newlines
+  if (serviceAccount.private_key) {
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+  }
+} catch (err) {
+  console.error("Error parsing FIREBASE_SERVICE_ACCOUNT:", err);
+  process.exit(1);
+}
 
 // 3. Initialize Firebase Admin SDK
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 const db = admin.firestore();
 
-// 4. Create Express App, HTTP Server, and Initialize Socket.io
+// 4. Set SendGrid API Key from Environment Variables
+const sendGridApiKey = process.env.SENDGRID_API_KEY;
+if (!sendGridApiKey) {
+  console.error("SENDGRID_API_KEY environment variable not set.");
+  process.exit(1);
+}
+sgMail.setApiKey(sendGridApiKey);
+
+// 5. Create Express App, HTTP Server, and Initialize Socket.io
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, { cors: { origin: "*" } });
 
-// 5. Apply Middleware
+// 6. Apply Middleware
 app.use(express.json());
 app.use(cors());
 
-// 6. Static Data for Menu
+// 7. Static Data for Menu (Example)
 const menu = [
   { id: 1, name: 'Burger', price: 5.99 },
   { id: 2, name: 'Pizza', price: 8.99 },
-  { id: 3, name: 'Fries', price: 2.99 }
+  { id: 3, name: 'Fries', price: 2.99 },
 ];
 
-// 7. Endpoints
+// 8. Endpoints
 
 // GET /menu - Return static menu data
 app.get('/menu', (req, res) => {
@@ -50,7 +78,7 @@ app.post('/order', async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields.' });
   }
 
-  // Use a default location (for example, the restaurant's coordinates)
+  // Use a default location (e.g., restaurant location)
   const defaultLocation = { lat: 40.7128, lng: -74.0060 };
 
   const newOrder = {
@@ -61,35 +89,33 @@ app.post('/order', async (req, res) => {
     phoneNumber, // Optional
     status: 'Order Received',
     location: defaultLocation,
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
   try {
     const orderRef = await db.collection('orders').add(newOrder);
     console.log(`Order placed with ID: ${orderRef.id}`);
 
-    // Set SendGrid API key directly (for testing purposes)
-    sgMail.setApiKey("SG.your_actual_sendgrid_api_key_here"); // Replace with your actual SendGrid key
-
     const msg = {
-      to: "youradmin@example.com", // Change to the desired recipient's email
+      to: "ashleysajous@elitebarbershopny.com", // Replace with your email
       from: "no-reply@jimmyspizza.com", // Must be a verified sender in SendGrid
       subject: "New Order Received at Jimmy's Pizza",
       text: `A new order has been placed by ${customerName} (${customerEmail}).\n\nAddress: ${address}\nItems: ${items.join(', ')}\n\nPlease check the admin dashboard for more details.`,
       html: `<p>A new order has been placed by <strong>${customerName}</strong> (${customerEmail}).</p>
              <p><strong>Address:</strong> ${address}</p>
              <p><strong>Items:</strong> ${items.join(', ')}</p>
-             <p>Please check the admin dashboard for more details.</p>`
+             <p>Please check the admin dashboard for more details.</p>`,
     };
 
-    sgMail.send(msg)
+    sgMail
+      .send(msg)
       .then(() => console.log("Notification email sent"))
-      .catch(error => console.error("Error sending notification email:", error));
+      .catch((error) => console.error("Error sending notification email:", error));
 
     res.json({ orderId: orderRef.id, status: newOrder.status });
   } catch (error) {
-    console.error('Error placing order:', error);
-    res.status(500).json({ error: 'Could not place order.' });
+    console.error("Error placing order:", error);
+    res.status(500).json({ error: "Could not place order." });
   }
 });
 
@@ -103,8 +129,8 @@ app.get('/order/:id', async (req, res) => {
     }
     res.json({ id: doc.id, ...doc.data() });
   } catch (error) {
-    console.error('Error fetching order:', error);
-    res.status(500).json({ error: 'Could not fetch order.' });
+    console.error("Error fetching order:", error);
+    res.status(500).json({ error: "Could not fetch order." });
   }
 });
 
@@ -113,7 +139,7 @@ app.get('/orders', async (req, res) => {
   try {
     const snapshot = await db.collection('orders').get();
     const orders = [];
-    snapshot.forEach(doc => {
+    snapshot.forEach((doc) => {
       orders.push({ id: doc.id, ...doc.data() });
     });
     console.log(`Fetched ${orders.length} orders`);
@@ -125,7 +151,6 @@ app.get('/orders', async (req, res) => {
 });
 
 // GET /orders/customer - Retrieve orders for a specific customer by email
-// Example: /orders/customer?email=customer@example.com
 app.get('/orders/customer', async (req, res) => {
   const email = req.query.email;
   if (!email) {
@@ -134,7 +159,7 @@ app.get('/orders/customer', async (req, res) => {
   try {
     const snapshot = await db.collection('orders').where('customerEmail', '==', email).get();
     const orders = [];
-    snapshot.forEach(doc => {
+    snapshot.forEach((doc) => {
       orders.push({ id: doc.id, ...doc.data() });
     });
     res.json({ orders });
@@ -160,12 +185,12 @@ app.patch('/order/:id/status', async (req, res) => {
     await orderRef.update({ status });
     res.json({ orderId, status });
   } catch (error) {
-    console.error('Error updating order status:', error);
-    res.status(500).json({ error: 'Failed to update order status.' });
+    console.error("Error updating order status:", error);
+    res.status(500).json({ error: "Failed to update order status." });
   }
 });
 
-// 7. Socket.io Setup (Optional for Real-Time Updates)
+// Socket.io Setup for Real-Time Updates (Optional)
 io.on('connection', (socket) => {
   console.log('A client connected:', socket.id);
   socket.on('disconnect', () => {
@@ -173,7 +198,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// 8. (Optional) Global Update Loop for Simulated Updates
+// Optional Global Update Loop for Simulated Updates
 setInterval(async () => {
   try {
     const snapshot = await db.collection('orders').get();
@@ -189,7 +214,7 @@ setInterval(async () => {
       };
       const updatedOrder = {
         ...order,
-        status: 'Order Out For Delivery', // Example status update
+        status: 'Order Out For Delivery',
         location: newLocation
       };
       try {
@@ -205,7 +230,7 @@ setInterval(async () => {
   }
 }, 5000);
 
-// 9. Start the Server
+// Start the Server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Kitchen is open on port ${PORT}`);
