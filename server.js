@@ -97,7 +97,7 @@ app.post('/order', async (req, res) => {
     console.log(`Order placed with ID: ${orderRef.id}`);
 
     const msg = {
-      to: "ashleysajous@elitebarbershopny.com", // Replace with your email
+      to: "orders@jimmysmenu.com", // Replace with your email
       from: "no-reply@jimmyspizza.com", // Must be a verified sender in SendGrid
       subject: "New Order Received at Jimmy's Pizza",
       text: `A new order has been placed by ${customerName} (${customerEmail}).\n\nAddress: ${address}\nItems: ${items.join(', ')}\n\nPlease check the admin dashboard for more details.`,

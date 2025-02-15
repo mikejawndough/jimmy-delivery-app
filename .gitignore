@@ -11,4 +11,3 @@ server.js
 # Temporary files
 .DS_Store
 
-.env
